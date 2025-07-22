@@ -26,7 +26,7 @@ if sheet.col_count < col_index:
 
 tokyo = pytz.timezone('Asia/Tokyo')
 now = datetime.datetime.now()
-timestamp = now.strftime("%m-%d%H:%M")  # ← 年なし、時:分あり
+timestamp = now.strftime("%m-%d %H:%M")  # ← 年なし、時:分あり
 sheet.update_cell(1, col_index, timestamp)
 
 for i, url in enumerate(urls, start=1):
