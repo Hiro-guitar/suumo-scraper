@@ -21,4 +21,4 @@ jobs:
         run: |
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Run script
-        run: python main.py
+        run: python sheet_reader.py
