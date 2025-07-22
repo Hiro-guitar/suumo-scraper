@@ -25,7 +25,7 @@ if sheet.col_count < col_index:
     sheet.add_cols(col_index - sheet.col_count)
 
 tokyo = pytz.timezone('Asia/Tokyo')
-now = datetime.datetime.now()
+now = datetime.datetime.now(tokyo)  # ここでタイムゾーン指定して取得
 timestamp = now.strftime("%m-%d %H:%M")  # ← 年なし、時:分あり
 sheet.update_cell(1, col_index, timestamp)
 
