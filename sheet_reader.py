@@ -4,6 +4,7 @@ from suumo_scrape import extract_conditions_from_url
 from suumo_search_url import build_suumo_search_url
 from suumo_checker import find_matching_property, check_company_name
 import datetime
+import pytz 
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
@@ -23,8 +24,9 @@ col_index = max_col + 1  # 右端の次の列
 if sheet.col_count < col_index:
     sheet.add_cols(col_index - sheet.col_count)
 
+tokyo = pytz.timezone('Asia/Tokyo')
 now = datetime.datetime.now()
-timestamp = now.strftime("%m-%d %H:%M")  # ← 年なし、時:分あり
+timestamp = now.strftime("%m-%d%H:%M")  # ← 年なし、時:分あり
 sheet.update_cell(1, col_index, timestamp)
 
 for i, url in enumerate(urls, start=1):
