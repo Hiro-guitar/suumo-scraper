@@ -13,11 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Create credentials.json file
-        run: |
-          cat <<EOF > credentials.json
-          ${{ secrets.GCP_CREDENTIALS }}
-          EOF
+      - name: Create credentials.json
+        run: echo "${{ secrets.GCP_CREDENTIALS }}" > credentials.json
 
       - name: Setup Python
         uses: actions/setup-python@v4
