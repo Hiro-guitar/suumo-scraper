@@ -17,70 +17,56 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
 client = gspread.authorize(creds)
 
-# === 元シートのデータ取得関数 ===
+# === 元シートのデータ取得 ===
 def get_source_data():
     sheet = client.open_by_key(SPREADSHEET_ID_SOURCE).sheet1
     result = sheet.get(SOURCE_RANGE)
     return [(row[0], row[1], row[9]) for row in result if len(row) >= 10 and row[0] and row[9].startswith('http')]
 
-# === 対象シート読み込み ===
+# === ターゲットシートとデータ ===
 target_sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+source_data = get_source_data()
+existing_data = target_sheet.get_all_values()
 
-# === データ取得・転記（履歴保持モード） ===
-existing_values = target_sheet.get_all_values()
-existing_map = {}  # {(物件名, 部屋番号): 行番号}
-rows_to_keep = set()
+# === ヘッダー + 履歴保持処理 ===
+header = existing_data[0] if existing_data else []
+existing_rows = existing_data[1:] if len(existing_data) > 1 else []
+existing_map = {(row[0], row[1], row[2]): idx for idx, row in enumerate(existing_rows, start=2)}
 
-for idx, row in enumerate(existing_values[1:], start=2):  # ヘッダー除外
-    if len(row) >= 2:
-        key = (row[0], row[1])
-        existing_map[key] = idx
+# === 最新データとして上書き + 不要行は削除 ===
+new_rows = []
+row_mapping = {}  # 新しいrow番号 → 元データindex
 
-property_data = get_source_data()
+for idx, row in enumerate(source_data, start=2):
+    new_rows.append([row[0], row[1], row[2]])
+    row_mapping[idx] = row
 
-for (title, room_no, url) in property_data:
-    key = (title, room_no)
-    if key in existing_map:
-        row_idx = existing_map[key]
-        target_sheet.update_cell(row_idx, 3, url)  # C列 = URL
-        rows_to_keep.add(row_idx)
-    else:
-        target_sheet.append_row([title, room_no, url])
-        new_row = len(target_sheet.get_all_values())
-        rows_to_keep.add(new_row)
+# 物件名・部屋番号・URLだけ更新（A〜C列）
+target_sheet.resize(rows=1)  # ヘッダー以外リセット
+target_sheet.update('A2', new_rows)
 
-# === 古い行を削除（元シートに存在しない物件） ===
-rows_all = set(existing_map.values())
-rows_to_delete = sorted(rows_all - rows_to_keep, reverse=True)
-
-for row_idx in rows_to_delete:
-    target_sheet.delete_rows(row_idx)
-
-# === 結果列の追加準備 ===
+# 不足列あれば追加
 all_values = target_sheet.get_all_values()
-max_col = max((len(row) for row in all_values if any(cell.strip() for cell in row)), default=0)
+max_col = max(len(r) for r in all_values if any(c.strip() for c in r))
 col_index = max_col + 1
-
 if target_sheet.col_count < col_index:
     target_sheet.add_cols(col_index - target_sheet.col_count)
 
-# === 日時ラベル記入（日本時間） ===
-tokyo = pytz.timezone('Asia/Tokyo')
-now = datetime.datetime.now(tokyo)
+# タイムスタンプ記入
+now = datetime.datetime.now(pytz.timezone("Asia/Tokyo"))
 timestamp = now.strftime("%m-%d %H:%M")
 target_sheet.update_cell(1, col_index, timestamp)
 
-# === チェック処理本体 ===
-for i, (_, _, url) in enumerate(property_data, start=2):
-    if not url.strip().startswith("http"):
-        continue
+# === SUUMOチェック一括処理 ===
+search_urls = []
+statuses = []
 
+for i, (title, room_no, url) in enumerate(source_data, start=2):
     print(f"🔗 処理中: {url}")
     result = extract_conditions_from_url(url)
 
     if result:
         print(f"🏠 物件名: {result.get('title', 'N/A')}")
-
         search_url = build_suumo_search_url(
             station_info=result['stations'],
             price=result['price'],
@@ -91,23 +77,39 @@ for i, (_, _, url) in enumerate(property_data, start=2):
 
         if search_url:
             print(f"🔎 検索URL: {search_url}")
-            target_sheet.update_cell(i, 4, search_url)  # D列
-
             detail_url = find_matching_property(search_url, result)
 
             if detail_url:
                 if check_company_name(detail_url):
                     print("⭕️ えほうまきが掲載中！")
-                    target_sheet.update_cell(i, col_index, "⭕️")
+                    status = "⭕️"
                 else:
                     print("❌ 他社掲載")
-                    target_sheet.update_cell(i, col_index, "❌")
+                    status = "❌"
             else:
                 print("🔍 一致物件なし")
-                target_sheet.update_cell(i, col_index, "")
+                status = ""
         else:
             print("⚠️ 検索URL作成失敗")
-            target_sheet.update_cell(i, col_index, "URL失敗")
+            search_url = ""
+            status = "URL失敗"
     else:
         print("⚠️ 条件抽出失敗")
-        target_sheet.update_cell(i, col_index, "抽出失敗")
+        search_url = ""
+        status = "抽出失敗"
+
+    search_urls.append([search_url])
+    statuses.append([status])
+
+# === 一括で書き込み ===
+start_row = 2
+end_row = start_row + len(search_urls) - 1
+
+# 検索URLを D列に
+target_sheet.update(f"D{start_row}:D{end_row}", search_urls)
+
+# 結果（⭕️❌）を履歴列に
+from gspread.utils import rowcol_to_a1
+start_cell = rowcol_to_a1(start_row, col_index)
+end_cell = rowcol_to_a1(end_row, col_index)
+target_sheet.update(f"{start_cell}:{end_cell}", statuses)
