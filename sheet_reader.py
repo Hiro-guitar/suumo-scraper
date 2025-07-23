@@ -98,51 +98,51 @@ def main():
     updated_data = target_sheet.get_all_values()[1:]  # ヘッダー除く
 
         for i, row in enumerate(updated_data, start=2):
-        if len(row) < 3:
-            continue
-        url = row[2].strip()
-        if not url.startswith("http"):
-            continue
-
-        print(f"🔗 処理中: {url}")
-        result = extract_conditions_from_url(url)
-
-        if result:
-            print(f"🏠 物件名: {result.get('title', 'N/A')}")
-
-            search_url = build_suumo_search_url(
-                station_info=result['stations'],
-                price=result['price'],
-                area_max=result['area'],
-                age_max=result['age'],
-                floor_plan=result['floor_plan']
-            )
-
-            if search_url:
-                print(f"🔎 検索URL: {search_url}")
-                target_sheet.update_cell(i, 4, search_url)
-                time.sleep(0.3)
-
-                detail_url = find_matching_property(search_url, result)
-
-                if detail_url:
-                    if check_company_name(detail_url):
-                        print("⭕️ えほうまきが掲載中！")
-                        target_sheet.update_cell(i, result_col_index, "⭕️")
+            if len(row) < 3:
+                continue
+            url = row[2].strip()
+            if not url.startswith("http"):
+                continue
+    
+            print(f"🔗 処理中: {url}")
+            result = extract_conditions_from_url(url)
+    
+            if result:
+                print(f"🏠 物件名: {result.get('title', 'N/A')}")
+    
+                search_url = build_suumo_search_url(
+                    station_info=result['stations'],
+                    price=result['price'],
+                    area_max=result['area'],
+                    age_max=result['age'],
+                    floor_plan=result['floor_plan']
+                )
+    
+                if search_url:
+                    print(f"🔎 検索URL: {search_url}")
+                    target_sheet.update_cell(i, 4, search_url)
+                    time.sleep(0.3)
+    
+                    detail_url = find_matching_property(search_url, result)
+    
+                    if detail_url:
+                        if check_company_name(detail_url):
+                            print("⭕️ えほうまきが掲載中！")
+                            target_sheet.update_cell(i, result_col_index, "⭕️")
+                        else:
+                            print("❌ 他社掲載（記入スキップ）")
+                            # 書き込みなし
                     else:
-                        print("❌ 他社掲載（記入スキップ）")
-                        # 書き込みなし
+                        print("🔍 一致物件なし")
+                        target_sheet.update_cell(i, result_col_index, "一致物件なし")
                 else:
-                    print("🔍 一致物件なし")
-                    target_sheet.update_cell(i, result_col_index, "一致物件なし")
+                    print("⚠️ 検索URL作成失敗")
+                    target_sheet.update_cell(i, result_col_index, "URL失敗")
             else:
-                print("⚠️ 検索URL作成失敗")
-                target_sheet.update_cell(i, result_col_index, "URL失敗")
-        else:
-            print("⚠️ 条件抽出失敗")
-            target_sheet.update_cell(i, result_col_index, "抽出失敗")
-
-        time.sleep(1)  # API制限対策
+                print("⚠️ 条件抽出失敗")
+                target_sheet.update_cell(i, result_col_index, "抽出失敗")
+    
+            time.sleep(1)  # API制限対策
 
 if __name__ == "__main__":
     main()
