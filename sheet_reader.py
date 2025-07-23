@@ -23,9 +23,31 @@ def get_source_data():
     result = sheet.get(SOURCE_RANGE)
     return [(row[0], row[1], row[9]) for row in result if len(row) >= 10 and row[0] and row[9].startswith('http')]
 
+# === 既存行の中で、元データにない物件は削除 ===
+def clean_target_sheet(target_sheet, valid_entries, start_row=2):
+    existing_values = target_sheet.get_all_values()
+    rows_to_delete = []
+
+    for i, row in enumerate(existing_values[start_row - 1:], start=start_row):
+        if len(row) < 2:
+            continue
+        title = row[0].strip()
+        room_no = row[1].strip()
+        if (title, room_no) not in valid_entries:
+            rows_to_delete.append(i)
+
+    # 後ろから削除しないと行番号がずれるので reverse
+    for row_index in reversed(rows_to_delete):
+        print(f"🗑️ 削除対象: 行 {row_index}")
+        target_sheet.delete_rows(row_index)
+
 # === データ取得・転記 ===
 target_sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 property_data = get_source_data()
+# 重複防止のために一度掃除してから貼る
+valid_pairs = [(title.strip(), room.strip()) for (title, room, _) in property_data]
+clean_target_sheet(target_sheet, valid_pairs)
+
 start_row = 2
 
 # 一括書き込み（物件名, 部屋番号, URL → A列〜C列）
