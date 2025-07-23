@@ -133,8 +133,8 @@ def main():
                         print("❌ 他社掲載（記入スキップ）")
                         # 書き込みなし
                 else:
-                    print("🔍 一致物件なし")
-                    target_sheet.update_cell(i, result_col_index, "一致物件なし")
+                    print("🔍 一致物件なし（記入スキップ）")
+                    # 書き込みなし
             else:
                 print("⚠️ 検索URL作成失敗")
                 target_sheet.update_cell(i, result_col_index, "URL失敗")
