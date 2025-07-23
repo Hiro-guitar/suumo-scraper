@@ -97,7 +97,7 @@ def main():
     # 再度最新データ取得（A〜C列）
     updated_data = target_sheet.get_all_values()[1:]  # ヘッダー除く
 
-    for i, row in enumerate(updated_data, start=2):
+        for i, row in enumerate(updated_data, start=2):
         if len(row) < 3:
             continue
         url = row[2].strip()
@@ -120,7 +120,6 @@ def main():
 
             if search_url:
                 print(f"🔎 検索URL: {search_url}")
-                # D列（4列目）に検索URL更新
                 target_sheet.update_cell(i, 4, search_url)
                 time.sleep(0.3)
 
@@ -131,11 +130,11 @@ def main():
                         print("⭕️ えほうまきが掲載中！")
                         target_sheet.update_cell(i, result_col_index, "⭕️")
                     else:
-                        print("❌ 他社掲載")
-                        target_sheet.update_cell(i, result_col_index, "❌")
+                        print("❌ 他社掲載（記入スキップ）")
+                        # 書き込みなし
                 else:
                     print("🔍 一致物件なし")
-                    target_sheet.update_cell(i, result_col_index, "")
+                    target_sheet.update_cell(i, result_col_index, "一致物件なし")
             else:
                 print("⚠️ 検索URL作成失敗")
                 target_sheet.update_cell(i, result_col_index, "URL失敗")
@@ -143,7 +142,7 @@ def main():
             print("⚠️ 条件抽出失敗")
             target_sheet.update_cell(i, result_col_index, "抽出失敗")
 
-        time.sleep(1)  # API制限対策ゆったり待機
+        time.sleep(1)  # API制限対策
 
 if __name__ == "__main__":
     main()
