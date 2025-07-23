@@ -23,39 +23,40 @@ def get_source_data():
     result = sheet.get(SOURCE_RANGE)
     return [(row[0], row[1], row[9]) for row in result if len(row) >= 10 and row[0] and row[9].startswith('http')]
 
-# === 既存行の中で、元データにない物件は削除 ===
-def clean_target_sheet(target_sheet, valid_entries, start_row=2):
-    existing_values = target_sheet.get_all_values()
-    rows_to_delete = []
-
-    for i, row in enumerate(existing_values[start_row - 1:], start=start_row):
-        if len(row) < 2:
-            continue
-        title = row[0].strip()
-        room_no = row[1].strip()
-        if (title, room_no) not in valid_entries:
-            rows_to_delete.append(i)
-
-    # 後ろから削除しないと行番号がずれるので reverse
-    for row_index in reversed(rows_to_delete):
-        print(f"🗑️ 削除対象: 行 {row_index}")
-        target_sheet.delete_rows(row_index)
-
-# === データ取得・転記 ===
+# === 対象シート読み込み ===
 target_sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+
+# === データ取得・転記（履歴保持モード） ===
+existing_values = target_sheet.get_all_values()
+existing_map = {}  # {(物件名, 部屋番号): 行番号}
+rows_to_keep = set()
+
+for idx, row in enumerate(existing_values[1:], start=2):  # ヘッダー除外
+    if len(row) >= 2:
+        key = (row[0], row[1])
+        existing_map[key] = idx
+
 property_data = get_source_data()
-# 重複防止のために一度掃除してから貼る
-valid_pairs = [(title.strip(), room.strip()) for (title, room, _) in property_data]
-clean_target_sheet(target_sheet, valid_pairs)
 
-start_row = 2
+for (title, room_no, url) in property_data:
+    key = (title, room_no)
+    if key in existing_map:
+        row_idx = existing_map[key]
+        target_sheet.update_cell(row_idx, 3, url)  # C列 = URL
+        rows_to_keep.add(row_idx)
+    else:
+        target_sheet.append_row([title, room_no, url])
+        new_row = len(target_sheet.get_all_values())
+        rows_to_keep.add(new_row)
 
-# 一括書き込み（物件名, 部屋番号, URL → A列〜C列）
-values_to_write = [[title, room_no, url] for (title, room_no, url) in property_data]
-end_row = start_row + len(values_to_write) - 1
-target_sheet.update(f"A{start_row}:C{end_row}", values_to_write)
+# === 古い行を削除（元シートに存在しない物件） ===
+rows_all = set(existing_map.values())
+rows_to_delete = sorted(rows_all - rows_to_keep, reverse=True)
 
-# === 動的に結果列を追加 ===
+for row_idx in rows_to_delete:
+    target_sheet.delete_rows(row_idx)
+
+# === 結果列の追加準備 ===
 all_values = target_sheet.get_all_values()
 max_col = max((len(row) for row in all_values if any(cell.strip() for cell in row)), default=0)
 col_index = max_col + 1
@@ -63,14 +64,14 @@ col_index = max_col + 1
 if target_sheet.col_count < col_index:
     target_sheet.add_cols(col_index - target_sheet.col_count)
 
-# === 日時ラベルを記入 ===
+# === 日時ラベル記入（日本時間） ===
 tokyo = pytz.timezone('Asia/Tokyo')
 now = datetime.datetime.now(tokyo)
 timestamp = now.strftime("%m-%d %H:%M")
 target_sheet.update_cell(1, col_index, timestamp)
 
-# === 各物件のSUUMOチェック処理 ===
-for i, (_, _, url) in enumerate(property_data, start=start_row):
+# === チェック処理本体 ===
+for i, (_, _, url) in enumerate(property_data, start=2):
     if not url.strip().startswith("http"):
         continue
 
