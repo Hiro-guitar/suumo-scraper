@@ -31,22 +31,18 @@ def main():
 
     # 1. 元シートから最新データ取得
     source_data = get_source_data()
-    source_keys = set(source_data)  # （物件名,部屋番号,URL）の集合
+    source_keys = set(source_data)
 
-    # 2. 既存シートの全データ取得（ヘッダー含む）
+    # 2. 既存データ取得
     existing_data = target_sheet.get_all_values()
-    if len(existing_data) < 2:
-        existing_rows = []
-    else:
-        existing_rows = existing_data[1:]  # ヘッダーは除く
+    existing_rows = existing_data[1:] if len(existing_data) >= 2 else []
 
-    # 3. 既存データのキーセット作成
     existing_keys = set()
     for row in existing_rows:
         if len(row) >= 3:
             existing_keys.add((row[0], row[1], row[2]))
 
-    # 4. 既存にあってソースにない行は削除（下から順に）
+    # 3. 不要行の削除
     rows_to_delete = []
     for i, row in enumerate(existing_rows, start=2):
         key = tuple(row[:3])
@@ -56,94 +52,79 @@ def main():
     for row_idx in reversed(rows_to_delete):
         print(f"🗑️ 行 {row_idx} を削除")
         target_sheet.delete_rows(row_idx)
-        time.sleep(1)  # Google Sheets API制限対策で軽く待機
+        time.sleep(1)
 
-    # 5. ソースの物件を行単位で辞書化（key=(物件名,部屋番号,URL)）
-    source_dict = {key: key for key in source_data}
+    # 4. 新規追加（既存にないものだけ追加、D列まで処理）
+    all_values = target_sheet.get_all_values()
+    existing_key_to_row = {
+        (row[0], row[1], row[2]): idx
+        for idx, row in enumerate(all_values[1:], start=2)
+        if len(row) >= 3
+    }
+    max_row = len(all_values)
 
-    # 6. 既存データをkey→行番号マップ化（更新用）
-    existing_key_to_row = {}
-    for i, row in enumerate(target_sheet.get_all_values()[1:], start=2):
-        if len(row) >= 3:
-            existing_key_to_row[(row[0], row[1], row[2])] = i
-
-    # 7. ソースにある物件を、既存の行番号に書き込むか、新規行追加か判定
-    max_row = len(target_sheet.get_all_values())
     for key in source_data:
-        if key in existing_key_to_row:
-            # 既存行に更新
-            row_num = existing_key_to_row[key]
-            target_sheet.update(f"A{row_num}:C{row_num}", [list(key)])
-            time.sleep(0.5)
-        else:
-            # 新規行追加（末尾）
+        if key not in existing_key_to_row:
+            print(f"➕ 追加: {key}")
             max_row += 1
             target_sheet.update(f"A{max_row}:C{max_row}", [list(key)])
+            url = key[2]
+            result = extract_conditions_from_url(url)
+
+            if result:
+                search_url = build_suumo_search_url(
+                    station_info=result['stations'],
+                    price=result['price'],
+                    area_max=result['area'],
+                    age_max=result['age'],
+                    floor_plan=result['floor_plan']
+                )
+                if search_url:
+                    target_sheet.update_cell(max_row, 4, search_url)
+                    time.sleep(0.3)
+                else:
+                    target_sheet.update_cell(max_row, 4, "URL失敗")
+            else:
+                target_sheet.update_cell(max_row, 4, "抽出失敗")
+
             time.sleep(0.5)
 
-    # 8. 列数、日時ラベルの準備
-    all_values = target_sheet.get_all_values()
-    max_col = max((len(row) for row in all_values if any(cell.strip() for cell in row)), default=0)
+    # 5. 結果列の準備（右端に追加）
+    updated_data = target_sheet.get_all_values()
+    max_col = max((len(row) for row in updated_data if any(cell.strip() for cell in row)), default=0)
     result_col_index = max_col + 1
-    needed_cols = result_col_index - target_sheet.col_count
-    if needed_cols > 0:
-        target_sheet.add_cols(needed_cols)
+    if result_col_index > target_sheet.col_count:
+        target_sheet.add_cols(result_col_index - target_sheet.col_count)
 
-    tokyo = pytz.timezone('Asia/Tokyo')
-    now = datetime.datetime.now(tokyo)
-    timestamp = now.strftime("%m-%d %H:%M")
+    timestamp = datetime.datetime.now(pytz.timezone('Asia/Tokyo')).strftime("%m-%d %H:%M")
     target_sheet.update_cell(1, result_col_index, timestamp)
 
-    # 9. 各物件のSUUMOチェック処理
-    # 再度最新データ取得（A〜C列）
-    updated_data = target_sheet.get_all_values()[1:]  # ヘッダー除く
-
-    for i, row in enumerate(updated_data, start=2):
-        if len(row) < 3:
+    # 6. ⭕️掲載確認（D列URL → 結果列）
+    for i, row in enumerate(updated_data[1:], start=2):
+        if len(row) < 4:
             continue
-        url = row[2].strip()
-        if not url.startswith("http"):
+        search_url = row[3].strip()
+        if not search_url.startswith("http"):
             continue
 
-        print(f"🔗 処理中: {url}")
-        result = extract_conditions_from_url(url)
-
-        if result:
-            print(f"🏠 物件名: {result.get('title', 'N/A')}")
-
-            search_url = build_suumo_search_url(
-                station_info=result['stations'],
-                price=result['price'],
-                area_max=result['area'],
-                age_max=result['age'],
-                floor_plan=result['floor_plan']
-            )
-
-            if search_url:
-                print(f"🔎 検索URL: {search_url}")
-                target_sheet.update_cell(i, 4, search_url)
-                time.sleep(0.3)
-    
-                detail_url = find_matching_property(search_url, result)
-
-                if detail_url:
-                    if check_company_name(detail_url):
-                        print("⭕️ えほうまきが掲載中！")
-                        target_sheet.update_cell(i, result_col_index, "⭕️")
-                    else:
-                        print("❌ 他社掲載（記入スキップ）")
-                        # 書き込みなし
-                else:
-                    print("🔍 一致物件なし（記入スキップ）")
-                    # 書き込みなし
-            else:
-                print("⚠️ 検索URL作成失敗")
-                target_sheet.update_cell(i, result_col_index, "URL失敗")
-        else:
-            print("⚠️ 条件抽出失敗")
+        print(f"🔍 検索: {search_url}")
+        result = extract_conditions_from_url(row[2])  # 掲載ページURL
+        if not result:
+            print("⚠️ 抽出失敗")
             target_sheet.update_cell(i, result_col_index, "抽出失敗")
+            continue
 
-        time.sleep(1)  # API制限対策
+        detail_url = find_matching_property(search_url, result)
+        if detail_url:
+            if check_company_name(detail_url):
+                print("⭕️ えほうまき掲載中")
+                target_sheet.update_cell(i, result_col_index, "⭕️")
+            else:
+                print("❌ 他社掲載（記入スキップ）")
+        else:
+            print("🔍 一致なし（記入スキップ）")
+
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()
