@@ -37,12 +37,9 @@ def main():
     existing_data = target_sheet.get_all_values()
     existing_rows = existing_data[1:] if len(existing_data) >= 2 else []
 
-    existing_keys = set()
-    for row in existing_rows:
-        if len(row) >= 3:
-            existing_keys.add((row[0], row[1], row[2]))
+    existing_keys = {(row[0], row[1], row[2]) for row in existing_rows if len(row) >= 3}
 
-    # 3. 不要行の削除
+    # 3. 不要行削除
     rows_to_delete = []
     for i, row in enumerate(existing_rows, start=2):
         key = tuple(row[:3])
@@ -54,7 +51,7 @@ def main():
         target_sheet.delete_rows(row_idx)
         time.sleep(1)
 
-    # 4. 新規追加（既存にないものだけ追加、D列まで処理）
+    # 4. 新規物件追加
     all_values = target_sheet.get_all_values()
     existing_key_to_row = {
         (row[0], row[1], row[2]): idx
@@ -65,8 +62,8 @@ def main():
 
     for key in source_data:
         if key not in existing_key_to_row:
-            print(f"➕ 追加: {key}")
             max_row += 1
+            print(f"➕ 新規追加: {key}")
             target_sheet.update(f"A{max_row}:C{max_row}", [list(key)])
             url = key[2]
             result = extract_conditions_from_url(url)
@@ -81,15 +78,13 @@ def main():
                 )
                 if search_url:
                     target_sheet.update_cell(max_row, 4, search_url)
-                    time.sleep(0.3)
                 else:
                     target_sheet.update_cell(max_row, 4, "URL失敗")
             else:
                 target_sheet.update_cell(max_row, 4, "抽出失敗")
-
             time.sleep(0.5)
 
-    # 5. 結果列の準備（右端に追加）
+    # 5. 結果列作成
     updated_data = target_sheet.get_all_values()
     max_col = max((len(row) for row in updated_data if any(cell.strip() for cell in row)), default=0)
     result_col_index = max_col + 1
@@ -99,30 +94,56 @@ def main():
     timestamp = datetime.datetime.now(pytz.timezone('Asia/Tokyo')).strftime("%m-%d %H:%M")
     target_sheet.update_cell(1, result_col_index, timestamp)
 
-    # 6. ⭕️掲載確認（D列URL → 結果列）
+    # 6. 掲載チェック（D列が "http〜" or "抽出失敗" → 再抽出）
     for i, row in enumerate(updated_data[1:], start=2):
         if len(row) < 4:
             continue
-        search_url = row[3].strip()
-        if not search_url.startswith("http"):
+
+        d_val = row[3].strip()
+        should_retry = d_val in ["抽出失敗", "URL失敗", ""]
+
+        if should_retry:
+            print(f"🔁 再抽出: {row[2]}")
+            result = extract_conditions_from_url(row[2])
+            if result:
+                search_url = build_suumo_search_url(
+                    station_info=result['stations'],
+                    price=result['price'],
+                    area_max=result['area'],
+                    age_max=result['age'],
+                    floor_plan=result['floor_plan']
+                )
+                if search_url:
+                    target_sheet.update_cell(i, 4, search_url)
+                    d_val = search_url
+                else:
+                    target_sheet.update_cell(i, 4, "URL失敗")
+                    continue
+            else:
+                target_sheet.update_cell(i, 4, "抽出失敗")
+                continue
+            time.sleep(0.5)
+
+        if not d_val.startswith("http"):
+            print("⚠️ 無効なURL、スキップ")
             continue
 
-        print(f"🔍 検索: {search_url}")
-        result = extract_conditions_from_url(row[2])  # 掲載ページURL
+        print(f"🔍 掲載チェック: {d_val}")
+        result = extract_conditions_from_url(row[2])
         if not result:
-            print("⚠️ 抽出失敗")
+            print("⚠️ 抽出失敗（掲載URL）")
             target_sheet.update_cell(i, result_col_index, "抽出失敗")
             continue
 
-        detail_url = find_matching_property(search_url, result)
+        detail_url = find_matching_property(d_val, result)
         if detail_url:
             if check_company_name(detail_url):
-                print("⭕️ えほうまき掲載中")
+                print("⭕️ 掲載あり")
                 target_sheet.update_cell(i, result_col_index, "⭕️")
             else:
-                print("❌ 他社掲載（記入スキップ）")
+                print("❌ 他社掲載")
         else:
-            print("🔍 一致なし（記入スキップ）")
+            print("🔍 一致なし")
 
         time.sleep(1)
 
