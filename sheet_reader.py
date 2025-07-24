@@ -85,8 +85,9 @@ def main():
     all_values = target_sheet.get_all_values()
     max_col = max((len(row) for row in all_values if any(cell.strip() for cell in row)), default=0)
     result_col_index = max_col + 1
-    if target_sheet.col_count < result_col_index:
-        target_sheet.add_cols(result_col_index - target_sheet.col_count)
+    needed_cols = result_col_index - target_sheet.col_count
+    if needed_cols > 0:
+        target_sheet.add_cols(needed_cols)
 
     tokyo = pytz.timezone('Asia/Tokyo')
     now = datetime.datetime.now(tokyo)
