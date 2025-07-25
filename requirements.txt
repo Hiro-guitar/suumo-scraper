@@ -3,3 +3,6 @@ oauth2client
 bs4
 requests
 pytz
+gspread-formatting
+google-auth
+google-auth-oauthlib
