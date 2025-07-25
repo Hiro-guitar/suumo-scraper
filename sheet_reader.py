@@ -97,14 +97,10 @@ def main():
     timestamp = datetime.datetime.now(pytz.timezone('Asia/Tokyo')).strftime("%m-%d %H:%M")
     target_sheet.update_cell(1, result_col_index, timestamp)
 
-    # 色リセット（フォーマットクリア）＋白背景設定
+    # 色リセット（フォーマットクリア）はできないので、白背景に上書きするだけにする
     col_letter = chr(ord('A') + result_col_index - 1)
     range_to_clear = f"{col_letter}2:{col_letter}1000"  # 2行目〜1000行目
-
-    # 1. セルのフォーマットクリア（背景色含む）
-    target_sheet.batch_clear([range_to_clear], fields='userEnteredFormat')
-
-    # 2. 白背景設定
+    
     white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))  # 白背景
     format_cell_range(target_sheet, range_to_clear, white_bg_format)
 
