@@ -6,7 +6,7 @@ from suumo_checker import find_matching_property, check_company_name
 import datetime
 import pytz
 import time
-from gspread_formatting import set_cell_background_color, Color
+from gspread_formatting import CellFormat, color, format_cell_range
 
 # === 設定 ===
 SPREADSHEET_ID_SOURCE = '1oZKxfoZbFWzTfZvSU_ZVHtnWLDmJDYNd6MSfNqlB074'
