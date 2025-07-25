@@ -92,27 +92,10 @@ def main():
     max_col = max((len(row) for row in updated_data if any(cell.strip() for cell in row)), default=0)
     result_col_index = max_col + 1
     if result_col_index > target_sheet.col_count:
-        add_count = result_col_index - target_sheet.col_count
-        target_sheet.add_cols(add_count)
-        
-        # 追加された列は連続しているので、追加列の範囲をまとめて指定
-        start_col_index = target_sheet.col_count - add_count + 1
-        end_col_index = target_sheet.col_count
-        for col_idx in range(start_col_index, end_col_index + 1):
-            col_letter = chr(ord('A') + col_idx - 1)
-            range_to_clear = f"{col_letter}2:{col_letter}1000"
-            white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))
-            format_cell_range(target_sheet, range_to_clear, white_bg_format)
+        target_sheet.add_cols(result_col_index - target_sheet.col_count)
 
     timestamp = datetime.datetime.now(pytz.timezone('Asia/Tokyo')).strftime("%m-%d %H:%M")
     target_sheet.update_cell(1, result_col_index, timestamp)
-
-    # 色リセット（フォーマットクリア）はできないので、白背景に上書きするだけにする
-    col_letter = chr(ord('A') + result_col_index - 1)
-    range_to_clear = f"{col_letter}2:{col_letter}1000"  # 2行目〜1000行目
-    
-    white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))  # 白背景
-    format_cell_range(target_sheet, range_to_clear, white_bg_format)
 
     # 6. 掲載チェック（D列が "http〜" or "抽出失敗" → 再抽出）
     for i, row in enumerate(updated_data[1:], start=2):
@@ -157,13 +140,13 @@ def main():
 
         detail_url = find_matching_property(d_val, result)
         if detail_url:
-            print("⭕️ 掲載あり（物件ID一致）")
-            green = Color(0.8, 1.0, 0.8)  # 薄い緑
-            fmt = CellFormat(backgroundColor=green)
-            cell_range = rowcol_to_a1(i, result_col_index)
-            format_cell_range(target_sheet, cell_range, fmt)
+            if check_company_name(detail_url):
+                print("⭕️ 掲載あり")
+                target_sheet.update_cell(i, result_col_index, "⭕️")
+            else:
+                print("❌ 他社掲載")
         else:
-            print("🔍 一致なし（物件ID見つからず）")
+            print("🔍 一致なし")
 
         time.sleep(1)
 
