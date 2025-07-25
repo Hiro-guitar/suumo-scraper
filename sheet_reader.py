@@ -101,10 +101,12 @@ def main():
     col_letter = chr(ord('A') + result_col_index - 1)
     range_to_clear = f"{col_letter}2:{col_letter}1000"  # 2行目〜1000行目
 
-    clear_basic_formatting(target_sheet, range_to_clear)  # フォーマットクリア
+    # 1. セルのフォーマットクリア（背景色含む）
+    target_sheet.batch_clear([range_to_clear], fields='userEnteredFormat')
 
+    # 2. 白背景設定
     white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))  # 白背景
-    format_cell_range(target_sheet, range_to_clear, white_bg_format)  # 白背景設定
+    format_cell_range(target_sheet, range_to_clear, white_bg_format)
 
     # 6. 掲載チェック（D列が "http〜" or "抽出失敗" → 再抽出）
     for i, row in enumerate(updated_data[1:], start=2):
