@@ -94,12 +94,13 @@ def main():
     if result_col_index > target_sheet.col_count:
         add_count = result_col_index - target_sheet.col_count
         target_sheet.add_cols(add_count)
-    
-        # 追加した列分、1列ずつ白背景に上書きする
-        for offset in range(add_count):
-            col_index = target_sheet.col_count - add_count + 1 + offset
-            col_letter = chr(ord('A') + col_index - 1)
-            range_to_clear = f"{col_letter}2:{col_letter}1000"  # 必要に応じて行数調整
+        
+        # 追加された列は連続しているので、追加列の範囲をまとめて指定
+        start_col_index = target_sheet.col_count - add_count + 1
+        end_col_index = target_sheet.col_count
+        for col_idx in range(start_col_index, end_col_index + 1):
+            col_letter = chr(ord('A') + col_idx - 1)
+            range_to_clear = f"{col_letter}2:{col_letter}1000"
             white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))
             format_cell_range(target_sheet, range_to_clear, white_bg_format)
 
