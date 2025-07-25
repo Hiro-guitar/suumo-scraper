@@ -140,14 +140,17 @@ def main():
         if detail_url:
             if check_company_name(detail_url):
                 print("⭕️ 掲載あり")
-                color = Color(red=0.8, green=1.0, blue=0.8)  # 薄い緑
-                set_cell_background_color(target_sheet, (i, result_col_index), color)
+                green = color(0.8, 1.0, 0.8)  # 薄い緑
+                fmt = CellFormat(backgroundColor=green)
+                col_letter = chr(ord('A') + result_col_index - 1)
+                cell_range = f"{col_letter}{i}"
+                format_cell_range(target_sheet, cell_range, fmt)
                 # 文字は元々空欄なら更新不要
             else:
                 print("❌ 他社掲載")
         else:
             print("🔍 一致なし")
-            
+
         time.sleep(1)
 
 if __name__ == "__main__":
