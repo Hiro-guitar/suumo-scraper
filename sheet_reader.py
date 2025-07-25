@@ -139,17 +139,13 @@ def main():
 
         detail_url = find_matching_property(d_val, result)
         if detail_url:
-            if check_company_name(detail_url):
-                print("⭕️ 掲載あり")
-                green = Color(0.8, 1.0, 0.8)  # 薄い緑
-                fmt = CellFormat(backgroundColor=green)
-                cell_range = rowcol_to_a1(i, result_col_index)
-                format_cell_range(target_sheet, cell_range, fmt)
-                        # 文字は元々空欄なら更新不要
-            else:
-                print("❌ 他社掲載")
+            print("⭕️ 掲載あり（物件ID一致）")
+            green = Color(0.8, 1.0, 0.8)  # 薄い緑
+            fmt = CellFormat(backgroundColor=green)
+            cell_range = rowcol_to_a1(i, result_col_index)
+            format_cell_range(target_sheet, cell_range, fmt)
         else:
-            print("🔍 一致なし")
+            print("🔍 一致なし（物件ID見つからず）")
 
         time.sleep(1)
 
