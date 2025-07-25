@@ -6,7 +6,7 @@ from suumo_checker import find_matching_property, check_company_name
 import datetime
 import pytz
 import time
-from gspread_formatting import CellFormat, color, format_cell_range
+from gspread.utils import rowcol_to_a1
 
 # === 設定 ===
 SPREADSHEET_ID_SOURCE = '1oZKxfoZbFWzTfZvSU_ZVHtnWLDmJDYNd6MSfNqlB074'
@@ -142,8 +142,7 @@ def main():
                 print("⭕️ 掲載あり")
                 green = color(0.8, 1.0, 0.8)  # 薄い緑
                 fmt = CellFormat(backgroundColor=green)
-                col_letter = chr(ord('A') + result_col_index - 1)
-                cell_range = f"{col_letter}{i}"
+                cell_range = rowcol_to_a1(i, result_col_index)
                 format_cell_range(target_sheet, cell_range, fmt)
                 # 文字は元々空欄なら更新不要
             else:
