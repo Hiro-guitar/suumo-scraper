@@ -8,7 +8,7 @@ import pytz
 import time
 from gspread_formatting import CellFormat, Color, format_cell_range
 from gspread.utils import rowcol_to_a1
-from gspread_formatting import clear_basic_formatting, CellFormat, Color, format_cell_range
+from gspread_formatting import CellFormat, Color, format_cell_range
 
 # === 設定 ===
 SPREADSHEET_ID_SOURCE = '1oZKxfoZbFWzTfZvSU_ZVHtnWLDmJDYNd6MSfNqlB074'
