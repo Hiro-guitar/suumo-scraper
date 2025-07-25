@@ -92,7 +92,16 @@ def main():
     max_col = max((len(row) for row in updated_data if any(cell.strip() for cell in row)), default=0)
     result_col_index = max_col + 1
     if result_col_index > target_sheet.col_count:
-        target_sheet.add_cols(result_col_index - target_sheet.col_count)
+    add_count = result_col_index - target_sheet.col_count
+    target_sheet.add_cols(add_count)
+
+    # 追加した列分、1列ずつ白背景に上書きする
+    for offset in range(add_count):
+        col_index = target_sheet.col_count - add_count + 1 + offset
+        col_letter = chr(ord('A') + col_index - 1)
+        range_to_clear = f"{col_letter}2:{col_letter}1000"  # 必要に応じて行数調整
+        white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))
+        format_cell_range(target_sheet, range_to_clear, white_bg_format)
 
     timestamp = datetime.datetime.now(pytz.timezone('Asia/Tokyo')).strftime("%m-%d %H:%M")
     target_sheet.update_cell(1, result_col_index, timestamp)
