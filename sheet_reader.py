@@ -96,6 +96,17 @@ def main():
     timestamp = datetime.datetime.now(pytz.timezone('Asia/Tokyo')).strftime("%m-%d %H:%M")
     target_sheet.update_cell(1, result_col_index, timestamp)
 
+    # 🔽🔽🔽 この部分を追加 🔽🔽🔽
+    from gspread_formatting import CellFormat, Color
+
+    white_bg_format = CellFormat(backgroundColor=Color(1, 1, 1))  # 白背景
+    col_letter = chr(ord('A') + result_col_index - 1)
+    range_to_format = f"{col_letter}2:{col_letter}1000"
+    format_cell_range(target_sheet, range_to_format, white_bg_format)
+    # 🔼🔼🔼 ここまで追加 🔼🔼🔼
+
+    target_sheet.update_cell(1, result_col_index, timestamp)
+
     # 6. 掲載チェック（D列が "http〜" or "抽出失敗" → 再抽出）
     for i, row in enumerate(updated_data[1:], start=2):
         if len(row) < 4:
