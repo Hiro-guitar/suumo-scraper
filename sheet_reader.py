@@ -6,6 +6,7 @@ from suumo_checker import find_matching_property, check_company_name
 import datetime
 import pytz
 import time
+from gspread_formatting import set_cell_background_color, Color
 
 # === 設定 ===
 SPREADSHEET_ID_SOURCE = '1oZKxfoZbFWzTfZvSU_ZVHtnWLDmJDYNd6MSfNqlB074'
@@ -139,12 +140,14 @@ def main():
         if detail_url:
             if check_company_name(detail_url):
                 print("⭕️ 掲載あり")
-                target_sheet.update_cell(i, result_col_index, "⭕️")
+                color = Color(red=0.8, green=1.0, blue=0.8)  # 薄い緑
+                set_cell_background_color(target_sheet, (i, result_col_index), color)
+                # 文字は元々空欄なら更新不要
             else:
                 print("❌ 他社掲載")
         else:
             print("🔍 一致なし")
-
+            
         time.sleep(1)
 
 if __name__ == "__main__":
