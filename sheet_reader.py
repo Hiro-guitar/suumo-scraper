@@ -6,6 +6,7 @@ from suumo_checker import find_matching_property, check_company_name
 import datetime
 import pytz
 import time
+from gspread_formatting import CellFormat, Color, format_cell_range
 from gspread.utils import rowcol_to_a1
 
 # === 設定 ===
@@ -140,11 +141,11 @@ def main():
         if detail_url:
             if check_company_name(detail_url):
                 print("⭕️ 掲載あり")
-                green = color(0.8, 1.0, 0.8)  # 薄い緑
+                green = Color(0.8, 1.0, 0.8)  # 薄い緑
                 fmt = CellFormat(backgroundColor=green)
                 cell_range = rowcol_to_a1(i, result_col_index)
                 format_cell_range(target_sheet, cell_range, fmt)
-                # 文字は元々空欄なら更新不要
+                        # 文字は元々空欄なら更新不要
             else:
                 print("❌ 他社掲載")
         else:
